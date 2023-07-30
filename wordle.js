@@ -14,7 +14,7 @@ let submit = document.querySelector(".submit");
 let menuIcon = document.querySelector(".menuIcon i");
 let menuBox = document.querySelector(".wordSizeMenu");
 let levels = document.querySelectorAll(".levels");
-let previousActive = document.querySelector(".activeLevel");
+let activeLevel = document.querySelector(".activeLevel");
 let currentScore = document.querySelector(".currentScore");
 let highscore = document.querySelector(".highscore");
 let spans;
@@ -2038,7 +2038,9 @@ wordSizeArray = [
 
 let winImg = ["win1.png", "win2.png"];
 let loseImg = ["lost1.png", "lost2.png"];
-let totalChances = 10;
+
+//initial setup
+let totalChances = 5;
 let chancesLeft = totalChances;
 let bestMatch = 0;
 let hasMadeSpan = false;
@@ -2048,6 +2050,7 @@ let mainWord = mainWordObject.word.toUpperCase();
 let remLettersToMatch = mainWord;
 setChances(chancesLeft);
 setDescription(mainWordObject.description);
+setInitialLetters(mainWord.length, Math.floor(mainWord.length / 3));
 //Functions
 function createBoxes(len) {
   for (let i = 0; i < len; i++) {
@@ -2095,6 +2098,22 @@ function decreaseChances() {
   chancesLeft--;
   setChances(chancesLeft);
 }
+function setInitialLetters(wordLength, numberOfLetters) {
+  let prevRandIdx = -1;
+  let boxes = document.querySelectorAll(".box");
+  while (numberOfLetters--) {
+    let randIdx = Math.floor(Math.random() * wordLength);
+    //if previous index is same as present index. we need to re run the loop
+    if (prevRandIdx == randIdx) {
+      numberOfLetters++;
+      continue;
+    }
+    boxes[randIdx].innerHTML = mainWord[randIdx];
+    boxes[randIdx].classList.add("green");
+    prevRandIdx = randIdx;
+  }
+}
+
 function checkAndShowBestMatch() {
   let boxes = document.querySelectorAll(".box");
   let currentMatch = 0;
@@ -2166,9 +2185,22 @@ function getHighscore() {
   }
   return hs;
 }
+function isWin() {
+  return bestMatch === mainWord.length;
+}
+function isLost() {
+  return chancesLeft <= 0;
+}
 function showResult() {
-  //win
-  if (bestMatch == mainWord.length) {
+  if (isWin() || isLost()) {
+    //if win or lost then add Event Listener to document to restart game if user press enter
+    //wait to load for 0.1sec
+    setTimeout(() => {
+      document.addEventListener("keydown", enterToRestart);
+    }, 100);
+  }
+  //Win
+  if (isWin()) {
     currentScore.innerHTML = `Score : ${getScore()}`;
     highscore.innerHTML = `Highscore : ${getHighscore()}`;
     wordleGame.style.display = "none";
@@ -2180,7 +2212,7 @@ function showResult() {
     }) no-repeat center center/cover`;
   }
   //Lost
-  else if (chancesLeft <= 0) {
+  else if (isLost()) {
     currentScore.innerHTML = `Score : ${getScore()}`;
     highscore.innerHTML = `Highscore : ${getHighscore()}`;
     wordleGame.style.display = "none";
@@ -2208,7 +2240,7 @@ function resetGame(wordLength) {
   bestMatch = 0;
   chancesLeft = totalChances;
   hasMadeSpan = false;
-  randIndex = Math.floor(Math.random() * wordLength);
+  randIndex = Math.floor(Math.random() * wordSizeArray[wordLength - 3].length);
   //since wordSizeArray has word starting from 3 and then 4,5,.. So 0 index has 3 wordLength. if worldLength is 5 the 5-3=2 that is 3rd index where there is fiveSizedWord
   mainWordObject = wordSizeArray[wordLength - 3][randIndex];
   mainWord = mainWordObject.word.toUpperCase();
@@ -2216,8 +2248,16 @@ function resetGame(wordLength) {
   setDescription(mainWordObject.description);
   setChances(chancesLeft);
   clearElements(boxes);
-}
+  setInitialLetters(wordLength, Math.floor(wordLength / 3));
+  //remove event listener after main game is started
+  document.removeEventListener("keydown", enterToRestart);
 
+}
+function enterToRestart(e) {
+  if (e.code == "Enter") {
+    resetGame(parseInt(activeLevel.innerHTML));
+  }
+}
 //Main
 //submit starts
 submit.addEventListener("click", () => {
@@ -2231,8 +2271,10 @@ guessInput.addEventListener("keydown", (e) => {
   }
 });
 //submit ends
+
 restart.addEventListener("click", () => {
-  resetGame(parseInt(previousActive.innerHTML));
+  //wordLength is active word length
+  resetGame(parseInt(activeLevel.innerHTML));
 });
 wordleGame.addEventListener("click", () => {
   menuBox.classList.remove("activeMenuBox");
@@ -2242,14 +2284,14 @@ menuIcon.addEventListener("click", () => {
 });
 levels.forEach((level) => {
   level.addEventListener("click", () => {
-    previousActive.classList.remove("activeLevel");
+    activeLevel.classList.remove("activeLevel");
     level.classList.add("activeLevel");
-    previousActive = level;
+    activeLevel = level;
     wordLength = parseInt(level.innerHTML);
     deleteBoxes();
     createBoxes(wordLength);
     guessInput.setAttribute("maxLength", wordLength);
-    totalChances = wordLength * 2;
+    totalChances = wordLength;
     resetGame(wordLength);
   });
 });
